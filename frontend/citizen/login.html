@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Citizen Login - Suraksha 360</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <h1>🛡️ Suraksha 360</h1>
+        <p>Citizen Safety Application</p>
+      </div>
+
+      <div id="alertContainer"></div>
+
+      <!-- Step 1: Enter Aadhaar -->
+      <div id="aadhaarStep">
+        <form id="aadhaarForm">
+          <div class="form-group">
+            <label for="aadhaar">Aadhaar Number *</label>
+            <input 
+              type="text" 
+              id="aadhaar" 
+              class="form-control" 
+              placeholder="Enter 12-digit Aadhaar"
+              maxlength="12"
+              pattern="[0-9]{12}"
+              required
+            >
+            <small style="color: #666; font-size: 0.875rem;">
+              ⚠️ MOCK: In real deployment, integrates with UIDAI API
+            </small>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="sendOtpBtn">
+            Send OTP
+          </button>
+        </form>
+      </div>
+
+      <!-- Step 2: Verify OTP -->
+      <div id="otpStep" class="hidden">
+        <form id="otpForm">
+          <div class="form-group">
+            <label for="otp">Enter OTP *</label>
+            <input 
+              type="text" 
+              id="otp" 
+              class="form-control" 
+              placeholder="Enter 6-digit OTP"
+              maxlength="6"
+              pattern="[0-9]{6}"
+              required
+            >
+            <small style="color: #666; font-size: 0.875rem;">
+              Test OTP: 123456
+            </small>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="verifyOtpBtn">
+            Verify OTP
+          </button>
+          <button type="button" class="btn btn-info btn-block mt-2" id="backBtn">
+            Back
+          </button>
+        </form>
+      </div>
+
+      <!-- Step 3: Registration (for new users) -->
+      <div id="registerStep" class="hidden">
+        <h3 style="margin-bottom: 1rem;">Complete Registration</h3>
+        <form id="registerForm">
+          <div class="form-group">
+            <label for="name">Full Name *</label>
+            <input type="text" id="name" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="phone">Phone Number *</label>
+            <input type="tel" id="phone" class="form-control" pattern="[0-9]{10}" maxlength="10" required>
+          </div>
+          <div class="form-group">
+            <label for="email">Email (Optional)</label>
+            <input type="email" id="email" class="form-control">
+          </div>
+          <div class="form-group">
+            <label for="password">Create Password *</label>
+            <input type="password" id="password" class="form-control" minlength="6" required>
+          </div>
+          <div class="form-group">
+            <label>Emergency Contacts (Phone Numbers)</label>
+            <input type="tel" id="emergency1" class="form-control" placeholder="Emergency Contact 1" pattern="[0-9]{10}" maxlength="10">
+            <input type="tel" id="emergency2" class="form-control mt-2" placeholder="Emergency Contact 2 (Optional)" pattern="[0-9]{10}" maxlength="10">
+            <input type="tel" id="emergency3" class="form-control mt-2" placeholder="Emergency Contact 3 (Optional)" pattern="[0-9]{10}" maxlength="10">
+            <small style="color: #666; font-size: 0.875rem;">
+              ⚠️ These contacts will receive SMS alerts during SOS
+            </small>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="registerBtn">
+            Complete Registration
+          </button>
+        </form>
+      </div>
+
+      <div style="margin-top: 2rem; text-align: center; font-size: 0.875rem; color: #666;">
+        <p>🔒 Secured by Government of India</p>
+        <p style="margin-top: 0.5rem;">
+          <a href="../index.html" style="color: var(--primary-color);">← Back to Home</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    let currentAadhaar = '';
+
+    // Show alert
+    function showAlert(message, type = 'info') {
+      const alertContainer = document.getElementById('alertContainer');
+      alertContainer.innerHTML = `
+        <div class="alert alert-${type}">
+          ${message}
+        </div>
+      `;
+      setTimeout(() => {
+        alertContainer.innerHTML = '';
+      }, 5000);
+    }
+
+    // Step 1: Send OTP
+    document.getElementById('aadhaarForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const aadhaar = document.getElementById('aadhaar').value;
+
+      if (aadhaar.length !== 12) {
+        showAlert('Please enter a valid 12-digit Aadhaar number', 'danger');
+        return;
+      }
+
+      currentAadhaar = aadhaar;
+      const btn = document.getElementById('sendOtpBtn');
+      btn.disabled = true;
+      btn.textContent = 'Sending OTP...';
+
+      try {
+        const response = await fetch(`${API_URL}/auth/send-otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ aadhaar })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showAlert('OTP sent successfully! (Use: 123456)', 'success');
+          document.getElementById('aadhaarStep').classList.add('hidden');
+          document.getElementById('otpStep').classList.remove('hidden');
+        } else {
+          showAlert(data.error || 'Failed to send OTP', 'danger');
+        }
+      } catch (error) {
+        showAlert('Network error. Please try again.', 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send OTP';
+      }
+    });
+
+    // Step 2: Verify OTP
+    document.getElementById('otpForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const otp = document.getElementById('otp').value;
+
+      if (otp.length !== 6) {
+        showAlert('Please enter a valid 6-digit OTP', 'danger');
+        return;
+      }
+
+      const btn = document.getElementById('verifyOtpBtn');
+      btn.disabled = true;
+      btn.textContent = 'Verifying...';
+
+      try {
+        const response = await fetch(`${API_URL}/auth/verify-otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ aadhaar: currentAadhaar, otp })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          if (data.newUser) {
+            // Show registration form
+            document.getElementById('otpStep').classList.add('hidden');
+            document.getElementById('registerStep').classList.remove('hidden');
+          } else {
+            // Login successful
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            showAlert('Login successful! Redirecting...', 'success');
+            setTimeout(() => {
+              window.location.href = 'dashboard.html';
+            }, 1000);
+          }
+        } else {
+          showAlert(data.error || 'Invalid OTP', 'danger');
+        }
+      } catch (error) {
+        showAlert('Network error. Please try again.', 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Verify OTP';
+      }
+    });
+
+    // Step 3: Registration
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const emergencyContacts = [
+        document.getElementById('emergency1').value,
+        document.getElementById('emergency2').value,
+        document.getElementById('emergency3').value
+      ].filter(c => c);
+
+      const registerData = {
+        aadhaar: currentAadhaar,
+        name: document.getElementById('name').value,
+        phone: document.getElementById('phone').value,
+        email: document.getElementById('email').value || null,
+        password: document.getElementById('password').value,
+        emergencyContacts
+      };
+
+      const btn = document.getElementById('registerBtn');
+      btn.disabled = true;
+      btn.textContent = 'Registering...';
+
+      try {
+        const response = await fetch(`${API_URL}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(registerData)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          showAlert('Registration successful! Redirecting...', 'success');
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 1000);
+        } else {
+          showAlert(data.error || 'Registration failed', 'danger');
+        }
+      } catch (error) {
+        showAlert('Network error. Please try again.', 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Complete Registration';
+      }
+    });
+
+    // Back button
+    document.getElementById('backBtn').addEventListener('click', () => {
+      document.getElementById('otpStep').classList.add('hidden');
+      document.getElementById('aadhaarStep').classList.remove('hidden');
+      document.getElementById('otp').value = '';
+    });
+  </script>
+</body>
+</html>

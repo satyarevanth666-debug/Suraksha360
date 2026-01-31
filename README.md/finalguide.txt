@@ -1,0 +1,135 @@
+# ⚡ GETTING STARTED - Run in 3 Minutes
+
+## 📋 Prerequisites
+
+Make sure you have:
+- ✅ **Node.js** installed (Download from https://nodejs.org)
+- ✅ **Any modern browser** (Chrome, Firefox, Edge)
+- ✅ **Command line access** (Terminal/CMD)
+
+---
+
+## 🚀 FASTEST WAY TO START
+
+### Step 1: Open Terminal/Command Prompt
+
+**Windows:** Press `Win + R`, type `cmd`, press Enter  
+**Mac:** Press `Cmd + Space`, type `terminal`, press Enter  
+**Linux:** Press `Ctrl + Alt + T`
+
+### Step 2: Navigate to Project
+
+```bash
+cd suraksha-360/backend
+```
+
+### Step 3: Install Dependencies (First Time Only)
+
+```bash
+npm install
+```
+
+Wait 30-60 seconds for installation to complete.
+
+### Step 4: Start the Server
+
+```bash
+npm start
+```
+
+You should see:
+```
+╔═══════════════════════════════════════════════════════════╗
+║            🛡️  SURAKSHA 360 - SERVER STARTED             ║
+╚═══════════════════════════════════════════════════════════╝
+
+🌐 Server running on: http://localhost:3000
+```
+
+### Step 5: Open Browser
+
+Open your browser and go to:
+```
+http://localhost:3000
+```
+
+**That's it! You're ready to test!**
+
+---
+
+## 👤 LOGIN CREDENTIALS
+
+### 🔴 Admin/Police Dashboard
+- **URL:** http://localhost:3000/admin/login.html
+- **Aadhaar:** 999999999999
+- **Password:** admin123
+
+### 🟢 Citizen App
+- **URL:** http://localhost:3000/citizen/login.html
+- **Aadhaar:** Any 12 digits (e.g., 123456789012)
+- **OTP:** 123456
+
+---
+
+## 🎯 WHAT TO TEST
+
+### ✅ As Citizen:
+1. Register with any Aadhaar number
+2. Add emergency contacts
+3. Submit a crime report
+4. Trigger SOS emergency
+5. Record voice/video evidence
+
+### ✅ As Admin:
+1. View dashboard statistics
+2. Monitor active SOS alerts
+3. Review crime reports
+4. Create risk zones
+5. View analytics charts
+
+---
+
+## 🛑 STOPPING THE SERVER
+
+Press `Ctrl + C` in the terminal where the server is running.
+
+---
+
+## ❓ COMMON ISSUES
+
+**"npm: command not found"**
+→ Install Node.js from https://nodejs.org
+
+**"Port 3000 already in use"**
+→ Kill the process or use a different port
+
+**Location not working**
+→ Allow location permission in browser
+
+**Charts not showing**
+→ Generate some data first (reports/SOS)
+
+---
+
+## 📚 FULL DOCUMENTATION
+
+- **README.md** - Complete project documentation
+- **DEPLOYMENT.md** - Production deployment guide
+- **QUICKSTART.md** - Quick reference guide
+
+---
+
+## 🎉 SUCCESS!
+
+If you can:
+- ✅ Login as admin
+- ✅ Register as citizen
+- ✅ Submit a crime report
+- ✅ Trigger SOS
+- ✅ See data in dashboard
+
+**You have successfully deployed Suraksha 360!**
+
+---
+
+**Need help? Check the troubleshooting section in README.md**

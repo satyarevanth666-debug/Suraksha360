@@ -1,0 +1,130 @@
+# 🚀 QUICK START GUIDE - Suraksha 360
+
+## Installation (3 Steps)
+
+### Step 1: Install Dependencies
+```bash
+cd backend
+npm install
+```
+
+### Step 2: Start Server
+```bash
+npm start
+```
+
+### Step 3: Open Browser
+```
+http://localhost:3000
+```
+
+---
+
+## Test the Application
+
+### ✅ As Admin (Police)
+
+1. Go to: `http://localhost:3000/admin/login.html`
+2. Login:
+   - Aadhaar: `999999999999`
+   - Password: `admin123`
+3. Explore:
+   - View dashboard statistics
+   - Monitor active SOS alerts
+   - Review crime reports
+   - Create risk zones
+   - View analytics
+
+### ✅ As Citizen
+
+1. Go to: `http://localhost:3000/citizen/login.html`
+2. Register:
+   - Enter any 12-digit Aadhaar (e.g., `123456789012`)
+   - OTP: `123456`
+   - Fill registration form
+   - Add emergency contacts
+3. Test Features:
+   - **Report Crime**: Go to "Report Crime" → Record voice → Submit
+   - **Trigger SOS**: Go to "SOS Emergency" → Press red button
+   - **Check Location**: Dashboard shows if you're in a risk zone
+
+---
+
+## Expected Behavior
+
+### When SOS is Triggered:
+✅ Location sent to police dashboard  
+✅ SMS sent to emergency contacts (simulated - check console logs)  
+✅ Audio recording starts automatically  
+✅ Evidence stored securely  
+
+### When Crime is Reported:
+✅ Submitted anonymously  
+✅ Voice recording captured  
+✅ Location auto-detected  
+✅ Visible in admin dashboard  
+✅ Works offline (syncs later)  
+
+### Risk Zone Detection:
+✅ Alerts when entering high-risk area  
+✅ Popup warning displayed  
+✅ SOS quick access  
+
+---
+
+## Troubleshooting
+
+**Server won't start?**
+```bash
+# Check if port 3000 is in use
+# Windows:
+netstat -ano | findstr :3000
+
+# Mac/Linux:
+lsof -i :3000
+```
+
+**Database issues?**
+```bash
+# Delete and recreate
+rm backend/suraksha360.db
+npm start
+```
+
+**Location not working?**
+- Allow location permission in browser
+- Must use HTTPS in production
+
+---
+
+## File Locations
+
+- **Backend**: `suraksha-360/backend/`
+- **Database**: `suraksha-360/backend/suraksha360.db`
+- **Citizen App**: `suraksha-360/frontend/citizen/`
+- **Admin Dashboard**: `suraksha-360/frontend/admin/`
+
+---
+
+## Success Checklist
+
+- [ ] Server starts without errors
+- [ ] Admin can login
+- [ ] Citizen can register
+- [ ] SOS can be triggered
+- [ ] Crime reports work
+- [ ] Dashboard shows data
+- [ ] Charts display properly
+
+---
+
+## Need Help?
+
+1. Check README.md for detailed documentation
+2. Review browser console for errors
+3. Check backend logs in terminal
+4. Verify all dependencies installed correctly
+
+---
+
+**Ready to deploy? Review README.md for production requirements!**

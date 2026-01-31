@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Risk Zones - Suraksha 360</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="admin-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🛡️ Suraksha 360</h2>
+        <p>Police Control Room</p>
+      </div>
+      <nav>
+        <ul class="sidebar-nav">
+          <li><a href="dashboard.html"><span class="icon">📊</span> Dashboard</a></li>
+          <li><a href="sos-monitor.html"><span class="icon">🚨</span> SOS Alerts</a></li>
+          <li><a href="reports.html"><span class="icon">📝</span> Crime Reports</a></li>
+          <li><a href="riskzones.html" class="active"><span class="icon">⚠️</span> Risk Zones</a></li>
+          <li><a href="analytics.html"><span class="icon">📈</span> Analytics</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="admin-header">
+        <h1>⚠️ Risk Zone Management</h1>
+        <div class="header-actions">
+          <span id="adminName"></span>
+          <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+        </div>
+      </header>
+
+      <div class="content-area">
+        <!-- Create Risk Zone -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Create New Risk Zone</h2>
+          </div>
+          <form id="createZoneForm">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+              <div class="form-group">
+                <label for="zoneName">Zone Name *</label>
+                <input type="text" id="zoneName" class="form-control" required placeholder="e.g., Downtown Market Area">
+              </div>
+              <div class="form-group">
+                <label for="latitude">Latitude *</label>
+                <input type="number" step="0.000001" id="latitude" class="form-control" required placeholder="e.g., 28.6139">
+              </div>
+              <div class="form-group">
+                <label for="longitude">Longitude *</label>
+                <input type="number" step="0.000001" id="longitude" class="form-control" required placeholder="e.g., 77.2090">
+              </div>
+              <div class="form-group">
+                <label for="radiusKm">Radius (km) *</label>
+                <input type="number" step="0.1" id="radiusKm" class="form-control" required placeholder="e.g., 2.5">
+              </div>
+              <div class="form-group">
+                <label for="riskLevel">Risk Level *</label>
+                <select id="riskLevel" class="form-control" required>
+                  <option value="high">High Risk</option>
+                  <option value="medium">Medium Risk</option>
+                  <option value="low">Low Risk</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="description">Description</label>
+              <textarea id="description" class="form-control" rows="2" placeholder="Reason for marking this area as high-risk..."></textarea>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+              <button type="submit" class="btn btn-primary">Create Risk Zone</button>
+              <button type="button" class="btn btn-info" onclick="detectCurrentLocation()">Use Current Location</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Active Risk Zones -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Active Risk Zones</h2>
+            <button class="btn btn-primary btn-sm" onclick="loadRiskZones()">🔄 Refresh</button>
+          </div>
+          <div id="zonesContainer">
+            <div class="text-center"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    const token = localStorage.getItem('adminToken');
+    const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+
+    if (!token) window.location.href = 'login.html';
+
+    document.getElementById('adminName').textContent = adminUser.name;
+
+    function logout() {
+      if (confirm('Logout?')) {
+        localStorage.clear();
+        window.location.href = 'login.html';
+      }
+    }
+
+    // Create Risk Zone
+    document.getElementById('createZoneForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const zoneData = {
+        zoneName: document.getElementById('zoneName').value,
+        latitude: parseFloat(document.getElementById('latitude').value),
+        longitude: parseFloat(document.getElementById('longitude').value),
+        radiusKm: parseFloat(document.getElementById('radiusKm').value),
+        riskLevel: document.getElementById('riskLevel').value,
+        description: document.getElementById('description').value
+      };
+
+      try {
+        const response = await fetch(`${API_URL}/riskzones/create`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(zoneData)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          alert('Risk zone created successfully!');
+          document.getElementById('createZoneForm').reset();
+          loadRiskZones();
+        } else {
+          alert('Error: ' + (data.error || 'Failed to create risk zone'));
+        }
+      } catch (error) {
+        alert('Network error. Please try again.');
+      }
+    });
+
+    // Detect Current Location
+    function detectCurrentLocation() {
+      if (!navigator.geolocation) {
+        alert('Geolocation is not supported by your browser');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          document.getElementById('latitude').value = position.coords.latitude.toFixed(6);
+          document.getElementById('longitude').value = position.coords.longitude.toFixed(6);
+          alert('Location detected successfully!');
+        },
+        (error) => {
+          alert('Error detecting location: ' + error.message);
+        }
+      );
+    }
+
+    // Load Risk Zones
+    async function loadRiskZones() {
+      try {
+        const response = await fetch(`${API_URL}/riskzones/all`);
+        const zones = await response.json();
+
+        const container = document.getElementById('zonesContainer');
+
+        if (zones.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><p>No risk zones created yet</p></div>';
+          return;
+        }
+
+        container.innerHTML = `
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Zone Name</th>
+                <th>Location</th>
+                <th>Radius</th>
+                <th>Risk Level</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${zones.map(zone => `
+                <tr>
+                  <td><strong>${zone.zone_name}</strong></td>
+                  <td>${zone.latitude.toFixed(4)}, ${zone.longitude.toFixed(4)}</td>
+                  <td>${zone.radius_km} km</td>
+                  <td><span class="badge badge-${zone.risk_level}">${zone.risk_level.toUpperCase()}</span></td>
+                  <td>${new Date(zone.created_at).toLocaleDateString()}</td>
+                  <td>
+                    <button class="btn btn-danger btn-sm" onclick="deleteZone(${zone.id}, '${zone.zone_name}')">Delete</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (error) {
+        console.error('Error loading risk zones:', error);
+        document.getElementById('zonesContainer').innerHTML = 
+          '<div class="alert alert-danger">Failed to load risk zones</div>';
+      }
+    }
+
+    // Delete Risk Zone
+    async function deleteZone(zoneId, zoneName) {
+      if (!confirm(`Are you sure you want to delete "${zoneName}"?`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/riskzones/${zoneId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          alert('Risk zone deleted successfully');
+          loadRiskZones();
+        } else {
+          alert('Failed to delete risk zone');
+        }
+      } catch (error) {
+        alert('Network error. Please try again.');
+      }
+    }
+
+    loadRiskZones();
+  </script>
+</body>
+</html>

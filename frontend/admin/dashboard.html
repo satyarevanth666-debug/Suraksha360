@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Suraksha 360</title>
+  <link rel="stylesheet" href="css/admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="admin-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🛡️ Suraksha 360</h2>
+        <p>Police Control Room</p>
+      </div>
+      <nav>
+        <ul class="sidebar-nav">
+          <li><a href="dashboard.html" class="active"><span class="icon">📊</span> Dashboard</a></li>
+          <li><a href="sos-monitor.html"><span class="icon">🚨</span> SOS Alerts</a></li>
+          <li><a href="reports.html"><span class="icon">📝</span> Crime Reports</a></li>
+          <li><a href="riskzones.html"><span class="icon">⚠️</span> Risk Zones</a></li>
+          <li><a href="analytics.html"><span class="icon">📈</span> Analytics</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="admin-header">
+        <h1>Dashboard Overview</h1>
+        <div class="header-actions">
+          <span id="adminName"></span>
+          <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+        </div>
+      </header>
+
+      <div class="content-area">
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon danger">🚨</div>
+            <div class="stat-info">
+              <h3 id="activeSOS">0</h3>
+              <p>Active SOS Alerts</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon primary">📊</div>
+            <div class="stat-info">
+              <h3 id="totalSOS">0</h3>
+              <p>Total SOS Triggered</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon warning">📝</div>
+            <div class="stat-info">
+              <h3 id="totalReports">0</h3>
+              <p>Crime Reports</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon success">⚠️</div>
+            <div class="stat-info">
+              <h3 id="riskZones">0</h3>
+              <p>Risk Zones</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active SOS Alerts -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">⚠️ Active Emergency Alerts</h2>
+            <button class="btn btn-primary btn-sm" onclick="loadStats()">🔄 Refresh</button>
+          </div>
+          <div id="activeSosContainer">
+            <div class="text-center"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+        <!-- Recent Crime Reports -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">📝 Recent Crime Reports</h2>
+            <a href="reports.html" class="btn btn-info btn-sm">View All</a>
+          </div>
+          <div id="recentReportsContainer">
+            <div class="text-center"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    const token = localStorage.getItem('adminToken');
+    const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+
+    if (!token || adminUser.role !== 'admin') {
+      window.location.href = 'login.html';
+    }
+
+    document.getElementById('adminName').textContent = adminUser.name;
+
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
+        window.location.href = 'login.html';
+      }
+    }
+
+    async function loadStats() {
+      try {
+        const response = await fetch(`${API_URL}/analytics/stats`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const stats = await response.json();
+
+        document.getElementById('activeSOS').textContent = stats.activeSOS || 0;
+        document.getElementById('totalSOS').textContent = stats.totalSOS || 0;
+        document.getElementById('totalReports').textContent = stats.totalReports || 0;
+        document.getElementById('riskZones').textContent = stats.totalRiskZones || 0;
+
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
+    }
+
+    async function loadActiveSOS() {
+      try {
+        const response = await fetch(`${API_URL}/sos/active`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const alerts = await response.json();
+        const container = document.getElementById('activeSosContainer');
+
+        if (alerts.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><p>No active emergency alerts</p></div>';
+          return;
+        }
+
+        container.innerHTML = `
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Alert ID</th>
+                <th>Location</th>
+                <th>Time</th>
+                <th>Risk Zone</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${alerts.map(alert => `
+                <tr>
+                  <td><strong>${alert.anonymous_id.substring(0, 8)}</strong></td>
+                  <td>${alert.address || `${alert.latitude}, ${alert.longitude}`}</td>
+                  <td>${new Date(alert.triggered_at).toLocaleString()}</td>
+                  <td>${alert.risk_zone || 'N/A'}</td>
+                  <td><span class="badge badge-active">ACTIVE</span></td>
+                  <td>
+                    <a href="sos-monitor.html?id=${alert.id}" class="btn btn-info btn-sm">View Details</a>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (error) {
+        console.error('Error loading SOS alerts:', error);
+        document.getElementById('activeSosContainer').innerHTML = '<div class="alert alert-danger">Failed to load alerts</div>';
+      }
+    }
+
+    async function loadRecentReports() {
+      try {
+        const response = await fetch(`${API_URL}/reports/all`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const reports = await response.json();
+        const container = document.getElementById('recentReportsContainer');
+
+        if (reports.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📝</div><p>No crime reports yet</p></div>';
+          return;
+        }
+
+        const recent = reports.slice(0, 5);
+
+        container.innerHTML = `
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Report ID</th>
+                <th>Crime Type</th>
+                <th>Location</th>
+                <th>Time</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${recent.map(report => `
+                <tr>
+                  <td><strong>${report.anonymous_id.substring(0, 8)}</strong></td>
+                  <td>${report.crime_type || 'Other'}</td>
+                  <td>${report.address || `${report.latitude}, ${report.longitude}`}</td>
+                  <td>${new Date(report.timestamp).toLocaleString()}</td>
+                  <td>
+                    <a href="reports.html?id=${report.id}" class="btn btn-info btn-sm">View</a>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (error) {
+        console.error('Error loading reports:', error);
+        document.getElementById('recentReportsContainer').innerHTML = '<div class="alert alert-danger">Failed to load reports</div>';
+      }
+    }
+
+    // Load data
+    loadStats();
+    loadActiveSOS();
+    loadRecentReports();
+
+    // Auto-refresh every 30 seconds
+    setInterval(() => {
+      loadStats();
+      loadActiveSOS();
+    }, 30000);
+  </script>
+</body>
+</html>

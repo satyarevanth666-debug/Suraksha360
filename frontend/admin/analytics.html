@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics - Suraksha 360</title>
+  <link rel="stylesheet" href="css/admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="admin-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🛡️ Suraksha 360</h2>
+        <p>Police Control Room</p>
+      </div>
+      <nav>
+        <ul class="sidebar-nav">
+          <li><a href="dashboard.html"><span class="icon">📊</span> Dashboard</a></li>
+          <li><a href="sos-monitor.html"><span class="icon">🚨</span> SOS Alerts</a></li>
+          <li><a href="reports.html"><span class="icon">📝</span> Crime Reports</a></li>
+          <li><a href="riskzones.html"><span class="icon">⚠️</span> Risk Zones</a></li>
+          <li><a href="analytics.html" class="active"><span class="icon">📈</span> Analytics</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="admin-header">
+        <h1>📈 Crime Analytics Dashboard</h1>
+        <div class="header-actions">
+          <span id="adminName"></span>
+          <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+        </div>
+      </header>
+
+      <div class="content-area">
+        <!-- Crime Type Distribution -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Crime Type Distribution</h2>
+          </div>
+          <div class="chart-container">
+            <canvas id="crimeTypeChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Time-Based Trends -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Crimes by Hour of Day</h2>
+          </div>
+          <div class="chart-container">
+            <canvas id="timeChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Area Density -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Top 10 Crime Hotspots</h2>
+          </div>
+          <div class="chart-container">
+            <canvas id="areaChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Response Time Analysis -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">SOS Response Time Analysis</h2>
+          </div>
+          <div id="responseTimeContainer">
+            <div class="text-center"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+        <!-- Risk Zone Effectiveness -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Risk Zone Effectiveness</h2>
+          </div>
+          <div class="chart-container">
+            <canvas id="riskZoneChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    const token = localStorage.getItem('adminToken');
+    const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+
+    if (!token) window.location.href = 'login.html';
+
+    document.getElementById('adminName').textContent = adminUser.name;
+
+    function logout() {
+      if (confirm('Logout?')) {
+        localStorage.clear();
+        window.location.href = 'login.html';
+      }
+    }
+
+    // Chart color schemes
+    const colors = {
+      primary: '#2196F3',
+      success: '#4CAF50',
+      danger: '#f44336',
+      warning: '#ff9800',
+      info: '#00bcd4'
+    };
+
+    const chartColors = [
+      '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+      '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
+    ];
+
+    // Load Crime Type Distribution
+    async function loadCrimeTypes() {
+      try {
+        const response = await fetch(`${API_URL}/analytics/crime-types`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        const ctx = document.getElementById('crimeTypeChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: data.map(d => d.crime_type || 'Other'),
+            datasets: [{
+              data: data.map(d => d.count),
+              backgroundColor: chartColors
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right'
+              }
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error loading crime types:', error);
+      }
+    }
+
+    // Load Time-Based Trends
+    async function loadTimeTrends() {
+      try {
+        const response = await fetch(`${API_URL}/analytics/time-trends`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        // Fill in missing hours with 0
+        const hours = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0'));
+        const counts = hours.map(hour => {
+          const found = data.find(d => d.hour === hour);
+          return found ? found.count : 0;
+        });
+
+        const ctx = document.getElementById('timeChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: hours.map(h => `${h}:00`),
+            datasets: [{
+              label: 'Number of Crimes',
+              data: counts,
+              backgroundColor: colors.primary,
+              borderColor: colors.primary,
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1
+                }
+              }
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error loading time trends:', error);
+      }
+    }
+
+    // Load Area Density
+    async function loadAreaDensity() {
+      try {
+        const response = await fetch(`${API_URL}/analytics/area-density`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        const ctx = document.getElementById('areaChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: data.map((d, i) => d.address || `Area ${i + 1}`),
+            datasets: [{
+              label: 'Crime Count',
+              data: data.map(d => d.crime_count),
+              backgroundColor: colors.danger,
+              borderColor: colors.danger,
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            scales: {
+              x: {
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error loading area density:', error);
+      }
+    }
+
+    // Load Response Time
+    async function loadResponseTime() {
+      try {
+        const response = await fetch(`${API_URL}/analytics/sos-response`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+        const container = document.getElementById('responseTimeContainer');
+
+        if (data.responseData.length === 0) {
+          container.innerHTML = '<div class="empty-state"><p>No resolved SOS alerts yet</p></div>';
+          return;
+        }
+
+        container.innerHTML = `
+          <div style="text-align: center; padding: 2rem; background: #f5f5f5; border-radius: 10px; margin-bottom: 1rem;">
+            <h2 style="font-size: 3rem; color: ${colors.primary}; margin: 0;">
+              ${data.averageResponseMinutes}
+            </h2>
+            <p style="font-size: 1.2rem; color: #666; margin: 0.5rem 0 0 0;">
+              Average Response Time (minutes)
+            </p>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Alert ID</th>
+                <th>Triggered</th>
+                <th>Resolved</th>
+                <th>Response Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.responseData.slice(0, 10).map(r => `
+                <tr>
+                  <td>${r.anonymous_id.substring(0, 8)}</td>
+                  <td>${new Date(r.triggered_at).toLocaleString()}</td>
+                  <td>${new Date(r.resolved_at).toLocaleString()}</td>
+                  <td><strong>${r.response_minutes} minutes</strong></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (error) {
+        console.error('Error loading response time:', error);
+      }
+    }
+
+    // Load Risk Zone Effectiveness
+    async function loadRiskZoneEffectiveness() {
+      try {
+        const response = await fetch(`${API_URL}/analytics/risk-zone-effectiveness`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        if (data.length === 0) {
+          document.getElementById('riskZoneChart').parentElement.innerHTML = 
+            '<div class="empty-state"><p>No risk zones created yet</p></div>';
+          return;
+        }
+
+        const ctx = document.getElementById('riskZoneChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: data.map(d => d.zone_name),
+            datasets: [{
+              label: 'SOS Alerts in Zone',
+              data: data.map(d => d.sos_count),
+              backgroundColor: colors.warning,
+              borderColor: colors.warning,
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1
+                }
+              }
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error loading risk zone data:', error);
+      }
+    }
+
+    // Load all analytics
+    loadCrimeTypes();
+    loadTimeTrends();
+    loadAreaDensity();
+    loadResponseTime();
+    loadRiskZoneEffectiveness();
+  </script>
+</body>
+</html>

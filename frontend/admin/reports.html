@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crime Reports - Suraksha 360</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="admin-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🛡️ Suraksha 360</h2>
+        <p>Police Control Room</p>
+      </div>
+      <nav>
+        <ul class="sidebar-nav">
+          <li><a href="dashboard.html"><span class="icon">📊</span> Dashboard</a></li>
+          <li><a href="sos-monitor.html"><span class="icon">🚨</span> SOS Alerts</a></li>
+          <li><a href="reports.html" class="active"><span class="icon">📝</span> Crime Reports</a></li>
+          <li><a href="riskzones.html"><span class="icon">⚠️</span> Risk Zones</a></li>
+          <li><a href="analytics.html"><span class="icon">📈</span> Analytics</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="admin-header">
+        <h1>📝 Anonymous Crime Reports</h1>
+        <div class="header-actions">
+          <span id="adminName"></span>
+          <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+        </div>
+      </header>
+
+      <div class="content-area">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">All Crime Reports</h2>
+            <button class="btn btn-primary btn-sm" onclick="loadReports()">🔄 Refresh</button>
+          </div>
+
+          <div style="margin-bottom: 1rem;">
+            <input type="text" id="searchInput" class="form-control" placeholder="Search reports..." onkeyup="filterReports()">
+          </div>
+
+          <div id="reportsContainer">
+            <div class="text-center"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Report Details Modal -->
+  <div id="reportModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Crime Report Details</h2>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    const token = localStorage.getItem('adminToken');
+    const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+
+    if (!token) window.location.href = 'login.html';
+
+    document.getElementById('adminName').textContent = adminUser.name;
+
+    let allReports = [];
+
+    function logout() {
+      if (confirm('Logout?')) {
+        localStorage.clear();
+        window.location.href = 'login.html';
+      }
+    }
+
+    async function loadReports() {
+      try {
+        const response = await fetch(`${API_URL}/reports/all`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        allReports = await response.json();
+        displayReports(allReports);
+
+      } catch (error) {
+        console.error('Error loading reports:', error);
+        document.getElementById('reportsContainer').innerHTML = 
+          '<div class="alert alert-danger">Failed to load reports</div>';
+      }
+    }
+
+    function displayReports(reports) {
+      const container = document.getElementById('reportsContainer');
+
+      if (reports.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📝</div><p>No crime reports submitted yet</p></div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Report ID</th>
+              <th>Crime Type</th>
+              <th>Location</th>
+              <th>Submitted At</th>
+              <th>Has Voice</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${reports.map(report => `
+              <tr>
+                <td><strong>${report.anonymous_id.substring(0, 8)}</strong></td>
+                <td><span class="badge badge-${getBadgeColor(report.crime_type)}">${report.crime_type || 'Other'}</span></td>
+                <td>${report.address || `${report.latitude}, ${report.longitude}`}</td>
+                <td>${new Date(report.timestamp).toLocaleString()}</td>
+                <td>${report.voice_filename ? '🎵 Yes' : '❌ No'}</td>
+                <td>
+                  <button class="btn btn-info btn-sm" onclick="viewReport(${report.id})">View Details</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function getBadgeColor(crimeType) {
+      const colors = {
+        'assault': 'danger',
+        'robbery': 'danger',
+        'theft': 'warning',
+        'harassment': 'warning',
+        'suspicious_activity': 'info'
+      };
+      return colors[crimeType] || 'primary';
+    }
+
+    function filterReports() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+      
+      const filtered = allReports.filter(report => {
+        return (
+          report.anonymous_id.toLowerCase().includes(searchTerm) ||
+          (report.crime_type && report.crime_type.toLowerCase().includes(searchTerm)) ||
+          (report.description && report.description.toLowerCase().includes(searchTerm)) ||
+          (report.address && report.address.toLowerCase().includes(searchTerm))
+        );
+      });
+
+      displayReports(filtered);
+    }
+
+    async function viewReport(reportId) {
+      try {
+        const response = await fetch(`${API_URL}/reports/${reportId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const report = await response.json();
+
+        document.getElementById('modalBody').innerHTML = `
+          <div>
+            <p><strong>Report ID:</strong> ${report.anonymous_id}</p>
+            <p><strong>Crime Type:</strong> <span class="badge badge-${getBadgeColor(report.crime_type)}">${report.crime_type || 'Other'}</span></p>
+            <p><strong>Submitted:</strong> ${new Date(report.timestamp).toLocaleString()}</p>
+            <p><strong>Location:</strong> ${report.address || `${report.latitude}, ${report.longitude}`}</p>
+            
+            ${report.description ? `
+              <div style="margin-top: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 5px;">
+                <strong>Description:</strong><br>
+                ${report.description}
+              </div>
+            ` : ''}
+
+            ${report.hasVoiceRecording ? `
+              <div style="margin-top: 1.5rem;">
+                <h3>Voice Recording</h3>
+                <audio controls style="width: 100%; margin-top: 0.5rem;">
+                  <source src="${API_URL}/reports/voice/${report.id}" type="audio/webm">
+                  Your browser does not support audio playback.
+                </audio>
+              </div>
+            ` : '<p style="margin-top: 1rem;"><em>No voice recording attached</em></p>'}
+
+            <div class="alert alert-info" style="margin-top: 1.5rem;">
+              <strong>🔒 Privacy Notice:</strong> This report was submitted anonymously. The citizen's identity is protected and cannot be accessed.
+            </div>
+          </div>
+        `;
+
+        document.getElementById('reportModal').classList.add('show');
+
+      } catch (error) {
+        alert('Error loading report details');
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('reportModal').classList.remove('show');
+    }
+
+    loadReports();
+  </script>
+</body>
+</html>

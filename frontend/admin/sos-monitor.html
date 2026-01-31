@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOS Monitor - Suraksha 360</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="admin-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>🛡️ Suraksha 360</h2>
+        <p>Police Control Room</p>
+      </div>
+      <nav>
+        <ul class="sidebar-nav">
+          <li><a href="dashboard.html"><span class="icon">📊</span> Dashboard</a></li>
+          <li><a href="sos-monitor.html" class="active"><span class="icon">🚨</span> SOS Alerts</a></li>
+          <li><a href="reports.html"><span class="icon">📝</span> Crime Reports</a></li>
+          <li><a href="riskzones.html"><span class="icon">⚠️</span> Risk Zones</a></li>
+          <li><a href="analytics.html"><span class="icon">📈</span> Analytics</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="admin-header">
+        <h1>🚨 SOS Emergency Monitor</h1>
+        <div class="header-actions">
+          <span id="adminName"></span>
+          <button class="btn btn-danger btn-sm" onclick="logout()">Logout</button>
+        </div>
+      </header>
+
+      <div class="content-area">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Active Emergency Alerts</h2>
+            <button class="btn btn-primary btn-sm" onclick="loadSOS()">🔄 Refresh</button>
+          </div>
+          <div id="sosContainer">
+            <div class="text-center"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Resolved Alerts</h2>
+          </div>
+          <div id="resolvedContainer">
+            <div class="text-center"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- SOS Details Modal -->
+  <div id="sosModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Emergency Alert Details</h2>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    const token = localStorage.getItem('adminToken');
+    const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+
+    if (!token) window.location.href = 'login.html';
+
+    document.getElementById('adminName').textContent = adminUser.name;
+
+    function logout() {
+      if (confirm('Logout?')) {
+        localStorage.clear();
+        window.location.href = 'login.html';
+      }
+    }
+
+    async function loadSOS() {
+      try {
+        const response = await fetch(`${API_URL}/sos/all`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const alerts = await response.json();
+        
+        const active = alerts.filter(a => a.status === 'active');
+        const resolved = alerts.filter(a => a.status === 'resolved');
+
+        renderActiveAlerts(active);
+        renderResolvedAlerts(resolved);
+
+      } catch (error) {
+        console.error('Error loading SOS:', error);
+      }
+    }
+
+    function renderActiveAlerts(alerts) {
+      const container = document.getElementById('sosContainer');
+
+      if (alerts.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><p>No active alerts</p></div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Alert ID</th>
+              <th>Location</th>
+              <th>Triggered At</th>
+              <th>Risk Zone</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${alerts.map(alert => `
+              <tr>
+                <td><strong>${alert.anonymous_id.substring(0, 8)}</strong></td>
+                <td>${alert.address || `${alert.latitude}, ${alert.longitude}`}</td>
+                <td>${new Date(alert.triggered_at).toLocaleString()}</td>
+                <td>${alert.risk_zone || 'N/A'}</td>
+                <td><span class="badge badge-active">ACTIVE</span></td>
+                <td>
+                  <button class="btn btn-info btn-sm" onclick="viewDetails(${alert.id})">View</button>
+                  <button class="btn btn-success btn-sm" onclick="resolveAlert(${alert.id})">Resolve</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderResolvedAlerts(alerts) {
+      const container = document.getElementById('resolvedContainer');
+
+      if (alerts.length === 0) {
+        container.innerHTML = '<p>No resolved alerts</p>';
+        return;
+      }
+
+      const recent = alerts.slice(0, 10);
+
+      container.innerHTML = `
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Alert ID</th>
+              <th>Location</th>
+              <th>Triggered</th>
+              <th>Resolved</th>
+              <th>Resolved By</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${recent.map(alert => `
+              <tr>
+                <td>${alert.anonymous_id.substring(0, 8)}</td>
+                <td>${alert.address || 'Location'}</td>
+                <td>${new Date(alert.triggered_at).toLocaleString()}</td>
+                <td>${new Date(alert.resolved_at).toLocaleString()}</td>
+                <td>${alert.resolved_by_name || 'Admin'}</td>
+                <td>
+                  <button class="btn btn-info btn-sm" onclick="viewDetails(${alert.id})">View</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    async function viewDetails(sosId) {
+      try {
+        const response = await fetch(`${API_URL}/sos/${sosId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const alert = await response.json();
+
+        document.getElementById('modalBody').innerHTML = `
+          <div>
+            <p><strong>Alert ID:</strong> ${alert.anonymous_id}</p>
+            <p><strong>Location:</strong> ${alert.address || `${alert.latitude}, ${alert.longitude}`}</p>
+            <p><strong>Triggered:</strong> ${new Date(alert.triggered_at).toLocaleString()}</p>
+            <p><strong>Status:</strong> <span class="badge badge-${alert.status}">${alert.status.toUpperCase()}</span></p>
+            ${alert.risk_zone ? `<p><strong>Risk Zone:</strong> ${alert.risk_zone}</p>` : ''}
+            
+            <h3 style="margin-top: 1.5rem;">Evidence Files</h3>
+            ${alert.evidence && alert.evidence.length > 0 ? `
+              <ul style="list-style: none; padding: 0;">
+                ${alert.evidence.map(e => `
+                  <li style="padding: 0.5rem; background: #f5f5f5; margin: 0.5rem 0; border-radius: 5px;">
+                    <strong>${e.evidence_type.toUpperCase()}:</strong> ${e.filename}
+                    <br>
+                    <small>Captured: ${new Date(e.timestamp).toLocaleString()}</small>
+                    <br>
+                    <a href="${API_URL}/sos/evidence/file/${e.id}" target="_blank" class="btn btn-primary btn-sm mt-2">
+                      ${e.evidence_type === 'audio' ? '🎵' : '📹'} Play ${e.evidence_type}
+                    </a>
+                  </li>
+                `).join('')}
+              </ul>
+            ` : '<p>No evidence files</p>'}
+
+            ${alert.status === 'resolved' ? `
+              <div style="margin-top: 1.5rem; padding: 1rem; background: #d4edda; border-radius: 5px;">
+                <strong>Resolution Notes:</strong><br>
+                ${alert.notes || 'No notes provided'}
+              </div>
+            ` : `
+              <div style="margin-top: 1.5rem;">
+                <h3>Resolve Alert</h3>
+                <textarea id="resolutionNotes" class="form-control" placeholder="Add resolution notes..."></textarea>
+                <button class="btn btn-success btn-block mt-2" onclick="resolveAlert(${alert.id})">
+                  Mark as Resolved
+                </button>
+              </div>
+            `}
+          </div>
+        `;
+
+        document.getElementById('sosModal').classList.add('show');
+
+      } catch (error) {
+        alert('Error loading alert details');
+      }
+    }
+
+    async function resolveAlert(sosId) {
+      const notes = document.getElementById('resolutionNotes')?.value || 'Resolved by admin';
+
+      if (!confirm('Mark this alert as resolved?')) return;
+
+      try {
+        const response = await fetch(`${API_URL}/sos/${sosId}/resolve`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ notes })
+        });
+
+        if (response.ok) {
+          alert('Alert marked as resolved');
+          closeModal();
+          loadSOS();
+        }
+      } catch (error) {
+        alert('Error resolving alert');
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('sosModal').classList.remove('show');
+    }
+
+    loadSOS();
+    setInterval(loadSOS, 30000);
+  </script>
+</body>
+</html>

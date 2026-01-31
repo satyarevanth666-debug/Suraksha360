@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Report Crime - Suraksha 360</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-content">
+        <div class="logo">🛡️ Suraksha 360</div>
+        <div class="user-info">
+          <span id="userName"></span>
+          <button class="btn btn-danger" onclick="window.location.href='dashboard.html'">Dashboard</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav">
+      <ul class="nav-links">
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="sos.html">SOS Emergency</a></li>
+        <li><a href="report.html" class="active">Report Crime</a></li>
+      </ul>
+    </div>
+
+    <div id="alertContainer"></div>
+
+    <!-- Report Form -->
+    <div class="card">
+      <h2 class="card-title">Anonymous Crime Report</h2>
+      <div class="alert alert-info">
+        <strong>🔒 Your identity is protected</strong><br>
+        This report will be submitted anonymously. Police will not know who reported this crime.
+      </div>
+
+      <form id="reportForm">
+        <div class="form-group">
+          <label for="crimeType">Crime Type *</label>
+          <select id="crimeType" class="form-control" required>
+            <option value="">Select crime type</option>
+            <option value="theft">Theft</option>
+            <option value="assault">Assault</option>
+            <option value="harassment">Harassment</option>
+            <option value="domestic_violence">Domestic Violence</option>
+            <option value="robbery">Robbery</option>
+            <option value="vandalism">Vandalism</option>
+            <option value="drug_related">Drug Related</option>
+            <option value="suspicious_activity">Suspicious Activity</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description (Optional)</label>
+          <textarea 
+            id="description" 
+            class="form-control" 
+            placeholder="Describe what you witnessed or experienced..."
+            rows="5"
+          ></textarea>
+          <small style="color: #666;">You can leave this blank and only submit a voice recording</small>
+        </div>
+
+        <div class="form-group">
+          <label>Voice Recording (Optional but Recommended)</label>
+          <div style="margin-bottom: 1rem;">
+            <button type="button" class="btn btn-primary" id="recordBtn" onclick="toggleRecording()">
+              🎤 Start Recording
+            </button>
+            <span id="recordingStatus" class="hidden" style="margin-left: 1rem;">
+              <span class="recording-indicator">
+                <span class="recording-dot"></span>
+                Recording... <span id="recordingTime">00:00</span>
+              </span>
+            </span>
+          </div>
+          <audio id="audioPlayback" controls class="hidden" style="width: 100%; margin-top: 0.5rem;"></audio>
+          <small style="color: #666;">Voice recordings help authorities take action faster</small>
+        </div>
+
+        <div class="form-group">
+          <label>Location *</label>
+          <div class="location-info">
+            <p id="locationText">Detecting location...</p>
+            <small style="color: #666;">Location is automatically captured for accurate reporting</small>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+          Submit Anonymous Report
+        </button>
+      </form>
+    </div>
+
+    <!-- Offline Queue Info -->
+    <div class="card" id="offlineQueue" class="hidden">
+      <h3 class="card-title">Offline Reports Queue</h3>
+      <p>You have <strong id="queueCount">0</strong> reports waiting to sync when online.</p>
+      <button class="btn btn-info" onclick="syncOfflineReports()">
+        Sync Now
+      </button>
+    </div>
+  </div>
+
+  <div id="offlineIndicator" class="hidden"></div>
+
+  <script src="js/offline.js"></script>
+  <script src="js/geolocation.js"></script>
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+    if (!token) window.location.href = 'login.html';
+
+    document.getElementById('userName').textContent = user.name;
+
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+    let recordingStartTime = null;
+    let recordingInterval = null;
+    let audioBlob = null;
+    let currentPosition = null;
+
+    // Show alert
+    function showAlert(message, type = 'info') {
+      const alertContainer = document.getElementById('alertContainer');
+      alertContainer.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+      setTimeout(() => { alertContainer.innerHTML = ''; }, 5000);
+    }
+
+    // Get location
+    async function updateLocation() {
+      try {
+        const position = await getCurrentPosition();
+        currentPosition = position;
+        const { latitude, longitude } = position.coords;
+        document.getElementById('locationText').textContent = 
+          `Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      } catch (error) {
+        document.getElementById('locationText').textContent = 'Location unavailable';
+      }
+    }
+
+    // Toggle recording
+    async function toggleRecording() {
+      if (!isRecording) {
+        await startRecording();
+      } else {
+        stopRecording();
+      }
+    }
+
+    // Start recording
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          const audioURL = URL.createObjectURL(audioBlob);
+          const audioPlayback = document.getElementById('audioPlayback');
+          audioPlayback.src = audioURL;
+          audioPlayback.classList.remove('hidden');
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+
+        document.getElementById('recordBtn').textContent = '⏹️ Stop Recording';
+        document.getElementById('recordBtn').classList.remove('btn-primary');
+        document.getElementById('recordBtn').classList.add('btn-danger');
+        document.getElementById('recordingStatus').classList.remove('hidden');
+
+        recordingStartTime = Date.now();
+        recordingInterval = setInterval(updateRecordingTime, 1000);
+
+      } catch (error) {
+        console.error('Error starting recording:', error);
+        showAlert('Could not access microphone', 'danger');
+      }
+    }
+
+    // Stop recording
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      }
+
+      isRecording = false;
+      clearInterval(recordingInterval);
+
+      document.getElementById('recordBtn').textContent = '🎤 Record Again';
+      document.getElementById('recordBtn').classList.add('btn-primary');
+      document.getElementById('recordBtn').classList.remove('btn-danger');
+      document.getElementById('recordingStatus').classList.add('hidden');
+    }
+
+    // Update recording time
+    function updateRecordingTime() {
+      if (!recordingStartTime) return;
+      
+      const duration = Math.floor((Date.now() - recordingStartTime) / 1000);
+      const minutes = Math.floor(duration / 60);
+      const seconds = duration % 60;
+      
+      document.getElementById('recordingTime').textContent = 
+        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    // Submit report
+    document.getElementById('reportForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (!currentPosition) {
+        showAlert('Please wait for location to be detected', 'warning');
+        return;
+      }
+
+      const crimeType = document.getElementById('crimeType').value;
+      const description = document.getElementById('description').value;
+      const { latitude, longitude } = currentPosition.coords;
+
+      const formData = new FormData();
+      formData.append('crimeType', crimeType);
+      formData.append('description', description);
+      formData.append('latitude', latitude);
+      formData.append('longitude', longitude);
+      formData.append('address', `Location: ${latitude}, ${longitude}`);
+      
+      if (audioBlob) {
+        formData.append('voiceRecording', audioBlob, `report-${Date.now()}.webm`);
+      }
+
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+
+      try {
+        // Check if online
+        if (!navigator.onLine) {
+          // Save to offline queue
+          saveToOfflineQueue({
+            crimeType,
+            description,
+            latitude,
+            longitude,
+            address: `Location: ${latitude}, ${longitude}`,
+            timestamp: new Date().toISOString(),
+            anonymousId: generateAnonymousId()
+          });
+          
+          showAlert('Report saved offline. Will sync when online.', 'info');
+          setTimeout(() => {
+            document.getElementById('reportForm').reset();
+            audioBlob = null;
+            document.getElementById('audioPlayback').classList.add('hidden');
+          }, 2000);
+        } else {
+          const response = await fetch(`${API_URL}/reports/submit`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            showAlert('Crime report submitted successfully!', 'success');
+            setTimeout(() => {
+              window.location.href = 'dashboard.html';
+            }, 2000);
+          } else {
+            showAlert(data.error || 'Failed to submit report', 'danger');
+          }
+        }
+      } catch (error) {
+        showAlert('Error submitting report. Saved offline.', 'warning');
+        saveToOfflineQueue({
+          crimeType,
+          description,
+          latitude,
+          longitude,
+          address: `Location: ${latitude}, ${longitude}`,
+          timestamp: new Date().toISOString(),
+          anonymousId: generateAnonymousId()
+        });
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Anonymous Report';
+      }
+    });
+
+    // Save to offline queue
+    function saveToOfflineQueue(report) {
+      let queue = JSON.parse(localStorage.getItem('offlineReports') || '[]');
+      queue.push(report);
+      localStorage.setItem('offlineReports', JSON.stringify(queue));
+      updateOfflineQueue();
+    }
+
+    // Update offline queue display
+    function updateOfflineQueue() {
+      const queue = JSON.parse(localStorage.getItem('offlineReports') || '[]');
+      if (queue.length > 0) {
+        document.getElementById('offlineQueue').classList.remove('hidden');
+        document.getElementById('queueCount').textContent = queue.length;
+      } else {
+        document.getElementById('offlineQueue').classList.add('hidden');
+      }
+    }
+
+    // Sync offline reports
+    async function syncOfflineReports() {
+      const queue = JSON.parse(localStorage.getItem('offlineReports') || '[]');
+      
+      if (queue.length === 0) {
+        showAlert('No reports to sync', 'info');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/reports/sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ reports: queue })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          localStorage.setItem('offlineReports', '[]');
+          showAlert(`Synced ${data.synced} reports successfully!`, 'success');
+          updateOfflineQueue();
+        }
+      } catch (error) {
+        showAlert('Sync failed. Will retry when online.', 'warning');
+      }
+    }
+
+    // Generate anonymous ID
+    function generateAnonymousId() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    // Initialize
+    updateLocation();
+    updateOfflineQueue();
+
+    // Auto-sync when coming online
+    window.addEventListener('online', syncOfflineReports);
+  </script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+#!/bin/bash
+
+echo "╔═══════════════════════════════════════════════════════════╗"
+echo "║                                                           ║"
+echo "║         🛡️  SURAKSHA 360 - INSTALLATION SCRIPT           ║"
+echo "║                                                           ║"
+echo "║     Government Safety Application (Prototype)            ║"
+echo "║                                                           ║"
+echo "╚═══════════════════════════════════════════════════════════╝"
+echo ""
+
+# Check if Node.js is installed
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js is not installed!"
+    echo "Please install Node.js from https://nodejs.org/"
+    exit 1
+fi
+
+echo "✅ Node.js version: $(node -v)"
+echo "✅ npm version: $(npm -v)"
+echo ""
+
+# Navigate to backend directory
+echo "📦 Installing backend dependencies..."
+cd backend
+
+if [ ! -f "package.json" ]; then
+    echo "❌ package.json not found!"
+    exit 1
+fi
+
+npm install
+
+if [ $? -eq 0 ]; then
+    echo "✅ Backend dependencies installed successfully!"
+else
+    echo "❌ Failed to install backend dependencies"
+    exit 1
+fi
+
+echo ""
+echo "╔═══════════════════════════════════════════════════════════╗"
+echo "║                  INSTALLATION COMPLETE!                   ║"
+echo "╚═══════════════════════════════════════════════════════════╝"
+echo ""
+echo "🚀 To start the application:"
+echo "   cd backend"
+echo "   npm start"
+echo ""
+echo "🌐 Access URLs:"
+echo "   Main Portal:      http://localhost:3000"
+echo "   Citizen App:      http://localhost:3000/citizen/login.html"
+echo "   Admin Dashboard:  http://localhost:3000/admin/login.html"
+echo ""
+echo "👤 Test Credentials:"
+echo "   Admin - Aadhaar: 999999999999, Password: admin123"
+echo "   Citizen - Any 12-digit Aadhaar, OTP: 123456"
+echo ""
+echo "📖 Read README.md for complete documentation"
+echo ""

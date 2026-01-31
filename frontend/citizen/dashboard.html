@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Suraksha 360</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-content">
+        <div class="logo">
+          🛡️ Suraksha 360
+        </div>
+        <div class="user-info">
+          <span id="userName">Loading...</span>
+          <button class="btn btn-danger" id="logoutBtn">Logout</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav">
+      <ul class="nav-links">
+        <li><a href="dashboard.html" class="active">Dashboard</a></li>
+        <li><a href="sos.html">SOS Emergency</a></li>
+        <li><a href="report.html">Report Crime</a></li>
+      </ul>
+    </div>
+
+    <!-- Welcome Card -->
+    <div class="card">
+      <h2 class="card-title">Welcome to Suraksha 360</h2>
+      <p>Your safety is our priority. Use this dashboard to access emergency services and report crimes anonymously.</p>
+      
+      <div style="margin-top: 2rem;">
+        <div class="alert alert-info">
+          <strong>📍 Current Status:</strong> <span id="riskStatus">Checking location...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+      <h3 class="card-title">Quick Actions</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <a href="sos.html" class="btn btn-danger btn-block" style="padding: 2rem;">
+          🚨 Emergency SOS
+        </a>
+        <a href="report.html" class="btn btn-primary btn-block" style="padding: 2rem;">
+          📝 Report Crime
+        </a>
+      </div>
+    </div>
+
+    <!-- Safety Tips -->
+    <div class="card">
+      <h3 class="card-title">Safety Features</h3>
+      <ul style="list-style: none; padding: 0;">
+        <li style="padding: 0.75rem 0; border-bottom: 1px solid #eee;">
+          ✅ <strong>Anonymous Reporting:</strong> Your identity is protected
+        </li>
+        <li style="padding: 0.75rem 0; border-bottom: 1px solid #eee;">
+          ✅ <strong>One-Tap SOS:</strong> Instant emergency alert to authorities
+        </li>
+        <li style="padding: 0.75rem 0; border-bottom: 1px solid #eee;">
+          ✅ <strong>Risk Zone Alerts:</strong> Get notified when entering high-risk areas
+        </li>
+        <li style="padding: 0.75rem 0; border-bottom: 1px solid #eee;">
+          ✅ <strong>Auto Evidence Capture:</strong> Automatic audio/video recording during emergencies
+        </li>
+        <li style="padding: 0.75rem 0;">
+          ✅ <strong>Offline Support:</strong> Works without internet connection
+        </li>
+      </ul>
+    </div>
+
+    <!-- Important Notice -->
+    <div class="card">
+      <div class="alert alert-warning">
+        <strong>⚠️ GOVERNMENT NOTICE</strong><br>
+        This is a prototype application. Real deployment requires:
+        <ul style="margin: 0.5rem 0 0 1.5rem;">
+          <li>UIDAI Aadhaar API integration</li>
+          <li>Telecom SMS gateway authorization</li>
+          <li>System-level installation permissions</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Offline Indicator -->
+  <div id="offlineIndicator" class="hidden"></div>
+
+  <!-- Risk Zone Alert Modal -->
+  <div id="riskZoneModal" class="hidden">
+    <div class="overlay"></div>
+    <div class="risk-zone-alert">
+      <h2 style="color: var(--danger-color); margin-bottom: 1rem;">⚠️ Risk Zone Alert</h2>
+      <p id="riskZoneMessage"></p>
+      <div style="margin-top: 1.5rem;">
+        <button class="btn btn-danger btn-block" onclick="redirectToSOS()">
+          🚨 Go to Emergency SOS
+        </button>
+        <button class="btn btn-info btn-block mt-2" onclick="closeRiskZoneAlert()">
+          I Understand
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/offline.js"></script>
+  <script src="js/geolocation.js"></script>
+  <script>
+    const API_URL = 'http://localhost:3000/api';
+
+    // Check authentication
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+    if (!token || !user.id) {
+      window.location.href = 'login.html';
+    }
+
+    // Display user name
+    document.getElementById('userName').textContent = `Welcome, ${user.name}`;
+
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      if (confirm('Are you sure you want to logout?')) {
+        localStorage.clear();
+        window.location.href = 'login.html';
+      }
+    });
+
+    // Check current location for risk zones
+    async function checkRiskZones() {
+      try {
+        const position = await getCurrentPosition();
+        const { latitude, longitude } = position.coords;
+
+        const response = await fetch(`${API_URL}/riskzones/check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ latitude, longitude })
+        });
+
+        const data = await response.json();
+
+        if (data.inRiskZone) {
+          showRiskZoneAlert(data.zone);
+          document.getElementById('riskStatus').innerHTML = `
+            <strong style="color: var(--danger-color);">You are in a HIGH-RISK ZONE: ${data.zone.zone_name}</strong>
+          `;
+        } else {
+          document.getElementById('riskStatus').innerHTML = `
+            <strong style="color: var(--primary-color);">You are in a SAFE AREA</strong>
+          `;
+        }
+      } catch (error) {
+        document.getElementById('riskStatus').textContent = 'Unable to determine location';
+      }
+    }
+
+    function showRiskZoneAlert(zone) {
+      document.getElementById('riskZoneMessage').innerHTML = `
+        You have entered <strong>${zone.zone_name}</strong>, a high-risk area identified by authorities.
+        <br><br>
+        <strong>Stay alert and be cautious.</strong>
+        <br><br>
+        Emergency SOS is available if you feel threatened.
+      `;
+      document.getElementById('riskZoneModal').classList.remove('hidden');
+    }
+
+    function closeRiskZoneAlert() {
+      document.getElementById('riskZoneModal').classList.add('hidden');
+    }
+
+    function redirectToSOS() {
+      window.location.href = 'sos.html';
+    }
+
+    // Check risk zones on load
+    checkRiskZones();
+
+    // Re-check every 30 seconds
+    setInterval(checkRiskZones, 30000);
+  </script>
+</body>
+</html>
